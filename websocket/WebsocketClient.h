@@ -23,6 +23,7 @@ public:
         m_client.init_asio();
 
         m_client.set_tls_init_handler(std::bind(&WebsocketClient::on_tls_init, this, ::_1));
+        
     };
 
     ~WebsocketClient() = default;

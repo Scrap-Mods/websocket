@@ -31,7 +31,6 @@ public:
         m_connection->set_fail_handler(std::bind(&WebsocketConnection::on_fail, this, ::_1));
         m_connection->set_message_handler(std::bind(&WebsocketConnection::on_message, this, ::_1, ::_2));
         m_connection->set_close_handler(std::bind(&WebsocketConnection::on_close, this, ::_1));
-        m_connection->set_close_handshake_timeout(1);
     }
 
     ~WebsocketConnection() = default;

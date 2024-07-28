@@ -4,12 +4,20 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <format>
 
 void lua_checkargs(lua_State* L, const int argn)
 {
     const int top = lua_gettop(L);
     if (top != argn)
         luaL_error(L, "Expected %d arguments, got %d", argn, top);
+}
+
+void lua_checkargs(lua_State* L, const int argn, const int argm)
+{
+    const int top = lua_gettop(L);
+    if (top < argn || top > argm)
+        luaL_error(L, "Expected %d to %d arguments, got %d", argn, argm, top);
 }
 
 std::string lua_stdcheckstring(lua_State* L, const int idx)
@@ -19,6 +27,12 @@ std::string lua_stdcheckstring(lua_State* L, const int idx)
     return std::string(str, size);
 }
 
+std::string lua_tostdstring(lua_State* L, const int idx)
+{
+    std::size_t size = 0;
+    const char* str = lua_tolstring(L, idx, &size);
+    return std::string(str, size);
+}
 
 // open, message, close, error
 int websocket_connection_on(lua_State* L)
@@ -67,8 +81,7 @@ int websocket_connection_close(lua_State* L)
     lua_checkargs(L, 1);
 
     auto* ws_conn = reinterpret_cast<WebsocketConnection*>(luaL_checkudata(L, 1, "WebsocketConnection"));
-    ws_conn->m_connection->pause_reading();
-
+    
     try
     {
         ws_conn->m_connection->close(websocketpp::close::status::normal, "");
@@ -80,26 +93,23 @@ int websocket_connection_close(lua_State* L)
     return 1;
 }
 
-
 int websocket_connection_gc(lua_State* L)
 {
     STORE_STACK(L);
     lua_checkargs(L, 1);
 
     auto* ws_conn = reinterpret_cast<WebsocketConnection*>(luaL_checkudata(L, 1, "WebsocketConnection"));
-    ws_conn->m_connection->pause_reading();
+    ws_conn->m_connection->set_close_handler({});
+
     try
     {
-        //ws_conn->m_connection->close(websocketpp::close::status::normal, "");
-
+        ws_conn->on_close(ws_conn->m_connection->weak_from_this());
         ws_conn->m_connection->terminate({});
     }
     catch (const std::exception& e) { }
 
     luaL_unref(L, LUA_REGISTRYINDEX, ws_conn->m_refCallbacks);
 
-    ws_conn->m_connection->set_close_handler({});
-    ws_conn->m_connection->set_fail_handler({});
     ws_conn->~WebsocketConnection();
 
     CHECK_STACK(L, 0);
@@ -126,13 +136,84 @@ int websocket_client_tick(lua_State* L)
     return 1;
 }
 
+std::vector<std::pair<std::string, std::string>> websocket_parse_table(lua_State* L, const int idx)
+{
+    luaL_checktype(L, idx, LUA_TTABLE);
+
+    std::vector<std::pair<std::string, std::string>> table;
+
+    // If invalid key/value is encountered, exit
+    lua_pushnil(L);
+
+    while (lua_next(L, idx) != 0)
+    {
+        const int typeKey = lua_type(L, -2);
+        if (typeKey != LUA_TSTRING)
+            luaL_error(L, "Invalid key type, expected 'string' got: '%s'", lua_typename(L, typeKey));
+
+        const int typeValue = lua_type(L, -1);
+        if (typeValue != LUA_TSTRING)
+            luaL_error(L, "Invalid value type, expected 'string' got: '%s'", lua_typename(L, typeValue));
+
+        table.emplace_back(lua_tostdstring(L, -2), lua_tostdstring(L, -1));
+
+        lua_pop(L, 1);
+    }
+
+    return table;
+}
+
+std::vector<std::string> websocket_parse_cookies(lua_State* L, const int idx)
+{
+    luaL_checktype(L, idx, LUA_TTABLE);
+
+    std::vector<std::string> table;
+
+    // If invalid key/value is encountered, exit
+    lua_pushnil(L);
+
+    while (lua_next(L, idx) != 0)
+    {
+        const int typeKey = lua_type(L, -2);
+        if (typeKey != LUA_TSTRING)
+            luaL_error(L, "Invalid key type, expected 'string' got: '%s'", lua_typename(L, typeKey));
+
+        const int typeValue = lua_type(L, -1);
+        if (typeValue != LUA_TSTRING)
+            luaL_error(L, "Invalid value type, expected 'string' got: '%s'", lua_typename(L, typeValue));
+
+        table.emplace_back(std::format("{}={}", lua_tostdstring(L, -2), lua_tostdstring(L, -1)));
+
+        lua_pop(L, 1);
+    }
+
+    return table;
+}
+
 int websocket_client_connect(lua_State* L)
 {
     STORE_STACK(L);
-    lua_checkargs(L, 2);
+    lua_checkargs(L, 2, 4);
     
     auto* ws_client = reinterpret_cast<WebsocketClient*>(luaL_checkudata(L, 1, "WebsocketClient"));
     const std::string uri = lua_stdcheckstring(L, 2);
+    
+    std::vector<std::pair<std::string, std::string>> headers;
+    if (__stack_idx__ >= 3) headers = std::move(websocket_parse_table(L, 3));
+
+    std::vector<std::string> cookies;
+    if (__stack_idx__ >= 4) cookies = std::move(websocket_parse_cookies(L, 4));
+
+    std::string cookies_str;
+    if (cookies.size())
+    {
+        for (int i = 0; i < cookies.size(); i++)
+        {
+            cookies_str.append(cookies[i]);
+            cookies_str.append("; ");
+        }
+        cookies_str.resize(cookies_str.size() - 2);
+    }
 
     websocketpp::lib::error_code ec;
     client::connection_ptr c = ws_client->connect(uri, ec);
@@ -144,6 +225,13 @@ int websocket_client_connect(lua_State* L)
     const int ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
     new (pConnection) WebsocketConnection(L, std::move(c), ref);
+
+    for (const auto& [k, v] : headers)
+    {
+        pConnection->m_connection->append_header(k, v);
+    }
+
+    pConnection->m_connection->append_header("Cookie", cookies_str);
 
     if (luaL_newmetatable(L, "WebsocketConnection"))
     {
