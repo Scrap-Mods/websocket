@@ -6,7 +6,7 @@
 
 This library provides a simple interface for working with WebSockets in Lua. It allows you to create WebSocket connections, send and receive messages, and handle various events.
 
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/scrap-mods/websocket/total)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Scrap-Mods/websocket/total)
 ![GitHub tag check runs](https://img.shields.io/github/check-runs/scrap-mods/websocket/v1.0.0)
 [![Discord](https://img.shields.io/discord/944260227195351040?link=https%3A%2F%2Fdiscord.gg%2FahzyHPn3y2)](https://discord.gg/ahzyHPn3y2)
 
