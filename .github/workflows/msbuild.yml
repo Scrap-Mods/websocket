@@ -45,5 +45,6 @@ jobs:
     - name: Create Release  
       uses: ncipollo/release-action@v1.14.0
       with:
+        artifacts: x64/Release/*.dll
         draft: true
         makeLatest: true
