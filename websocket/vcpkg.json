@@ -1,12 +1,13 @@
 {
-    "name": "luawebsocket",
-    "version": "1.0.0",
-    "dependencies": [
-        "boost-random",
-        "luajit",
-        {
-            "name": "websocketpp",
-            "features": [ "recommended" ]
-        }
-    ]
+  "name": "luawebsocket",
+  "version": "1.0.0",
+  "builtin-baseline": "9a718185e570b2366fda05eb65f1fc826fbf1cef",
+  "dependencies": [
+    "boost-random",
+    "luajit",
+    {
+      "name": "websocketpp",
+      "features": [ "recommended" ]
+    }
+  ]
 }

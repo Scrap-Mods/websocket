@@ -236,6 +236,9 @@
     <ClInclude Include="WebsocketClient.h" />
     <ClInclude Include="WebsocketConnection.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="vcpkg.json" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
