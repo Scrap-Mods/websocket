@@ -45,7 +45,7 @@ static int websocket_connection_on(lua_State* L)
 	luaL_checktype(L, 3, LUA_TFUNCTION);
 
 	// Ensure callback table is valid
-	lua_rawgeti(L, LUA_REGISTRYINDEX, ws_conn->m_refCallbacks);
+	lua_rawgeti(L, LUA_REGISTRYINDEX, ws_conn->get_ref_callbacks());
 
 	if (lua_type(L, -1) != LUA_TTABLE)
 		luaL_error(L, "Invalid callbacks table");
@@ -70,7 +70,7 @@ static int websocket_connection_send(lua_State* L)
 	std::size_t msg_len;
 	const char* msg_ptr = luaL_checklstring(L, 2, &msg_len);
 
-	ws_conn->m_connection->send(msg_ptr, msg_len, websocketpp::frame::opcode::text);
+	ws_conn->send(msg_ptr, msg_len);
 
 	lua_pushnil(L);
 	CHECK_STACK(L, 1);
@@ -86,7 +86,7 @@ static int websocket_connection_close(lua_State* L)
 
 	try
 	{
-		ws_conn->m_connection->close(websocketpp::close::status::normal, "");
+		ws_conn->close();
 	}
 	catch (...) {}
 
@@ -101,16 +101,16 @@ static int websocket_connection_gc(lua_State* L)
 	lua_checkargs(L, 1);
 
 	auto* ws_conn = WebsocketConnection::FromUserdata(L, 1);
-	ws_conn->m_connection->set_close_handler({});
+	ws_conn->clear_close_handler();
 
 	try
 	{
-		ws_conn->on_close(ws_conn->m_connection->weak_from_this());
-		ws_conn->m_connection->terminate({});
+		ws_conn->on_close(ws_conn->get_hdl());
+		ws_conn->terminate();
 	}
 	catch (...) {}
 
-	luaL_unref(L, LUA_REGISTRYINDEX, ws_conn->m_refCallbacks);
+	luaL_unref(L, LUA_REGISTRYINDEX, ws_conn->get_ref_callbacks());
 
 	ws_conn->~WebsocketConnection();
 
@@ -219,14 +219,15 @@ static int websocket_client_connect(lua_State* L)
 	}
 
 	websocketpp::lib::error_code ec;
-	client::connection_ptr c = ws_client->connect(uri, ec);
+	bool is_tls = false;
+	connection_ptr_variant c = ws_client->connect(uri, ec, is_tls);
 	if (ec) luaL_error(L, "connection failed: %s", ec.message().c_str());
 
-	auto* pConnection = WebsocketConnection::NewUserdata(L, std::move(c));
+	auto* pConnection = WebsocketConnection::NewUserdata(L, std::move(c), ws_client, is_tls);
 	for (const auto& [k, v] : headers)
-		pConnection->m_connection->append_header(k, v);
+		pConnection->append_header(k, v);
 
-	pConnection->m_connection->append_header("Cookie", cookies_str);
+	pConnection->append_header("Cookie", cookies_str);
 
 	if (luaL_newmetatable(L, "WebsocketConnection"))
 	{

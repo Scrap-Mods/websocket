@@ -1,24 +1,18 @@
 #pragma once
 
-#include <websocketpp/config/asio_client.hpp>
-#include <websocketpp/client.hpp>
+#include "WebsocketTypes.h"
 #include <luajit/lua.hpp>
-
-typedef websocketpp::client<websocketpp::config::asio_tls_client> client;
-typedef websocketpp::config::asio_client::message_type::ptr message_ptr;
-typedef websocketpp::lib::shared_ptr<websocketpp::lib::asio::ssl::context> context_ptr;
-
-using websocketpp::lib::placeholders::_1;
-using websocketpp::lib::placeholders::_2;
-using websocketpp::lib::bind;
+#include <string>
 
 struct WebsocketClient
 {
 	WebsocketClient() :
-		m_client()
+		m_plain_client(),
+		m_tls_client()
 	{
-		m_client.init_asio();
-		m_client.set_tls_init_handler(std::bind(&WebsocketClient::on_tls_init, this, ::_1));        
+		m_plain_client.init_asio();
+		m_tls_client.init_asio();
+		m_tls_client.set_tls_init_handler(std::bind(&WebsocketClient::on_tls_init, this, ::_1));
 	};
 
 	~WebsocketClient() = default;
@@ -26,9 +20,16 @@ struct WebsocketClient
 	static WebsocketClient* FromUserdata(lua_State* L, const int narg);
 	static WebsocketClient* NewUserdata(lua_State* L);
 
-	client::connection_ptr connect(const std::string& t_uri, websocketpp::lib::error_code& ec);
+	connection_ptr_variant connect(const std::string& t_uri, websocketpp::lib::error_code& ec, bool& is_tls);
 	void on_tick();
 	context_ptr on_tls_init(websocketpp::connection_hdl);
+	void register_connection(bool is_tls);
+	void unregister_connection(bool is_tls);
 
-	client m_client;
+	static bool is_tls_uri(const std::string& t_uri);
+
+	non_tls_client m_plain_client;
+	tls_client m_tls_client;
+	std::size_t m_plain_connection_count = 0;
+	std::size_t m_tls_connection_count = 0;
 };
