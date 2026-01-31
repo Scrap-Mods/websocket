@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+std::atomic<bool> WebsocketClient::s_is_alive{ false };
+
 WebsocketClient* WebsocketClient::FromUserdata(lua_State* L, const int narg)
 {
 	return reinterpret_cast<WebsocketClient*>(luaL_checkudata(L, narg, "WebsocketClient"));
@@ -100,4 +102,9 @@ void WebsocketClient::unregister_connection(bool is_tls)
 
 	if (m_plain_connection_count > 0)
 		--m_plain_connection_count;
+}
+
+bool WebsocketClient::IsAlive()
+{
+	return s_is_alive.load();
 }

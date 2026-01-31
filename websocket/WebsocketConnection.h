@@ -45,7 +45,7 @@ struct WebsocketConnection
 	void append_header(const std::string& key, const std::string& value);
 	void send(const char* message, std::size_t message_len);
 	void close();
-	void clear_close_handler();
+	void clear_handlers();
 	void terminate();
 	websocketpp::connection_hdl get_hdl() const;
 	websocketpp::lib::error_code get_ec() const;

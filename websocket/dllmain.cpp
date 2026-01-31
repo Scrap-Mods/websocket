@@ -101,11 +101,10 @@ static int websocket_connection_gc(lua_State* L)
 	lua_checkargs(L, 1);
 
 	auto* ws_conn = WebsocketConnection::FromUserdata(L, 1);
-	ws_conn->clear_close_handler();
+	ws_conn->clear_handlers();
 
 	try
 	{
-		ws_conn->on_close(ws_conn->get_hdl());
 		ws_conn->terminate();
 	}
 	catch (...) {}

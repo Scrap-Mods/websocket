@@ -21,7 +21,7 @@ WebsocketConnection* WebsocketConnection::NewUserdata(lua_State* L, connection_p
 
 WebsocketConnection::~WebsocketConnection()
 {
-	if (m_owner)
+	if (m_owner && WebsocketClient::IsAlive())
 		m_owner->unregister_connection(m_is_tls);
 }
 
@@ -158,10 +158,13 @@ void WebsocketConnection::close()
 		});
 }
 
-void WebsocketConnection::clear_close_handler()
+void WebsocketConnection::clear_handlers()
 {
 	visit_connection([&](auto& connection)
 		{
+			connection->set_open_handler({});
+			connection->set_fail_handler({});
+			connection->set_message_handler({});
 			connection->set_close_handler({});
 		});
 }
